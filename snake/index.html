@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Snake Rush</title>
+
+<!-- Google AdSense -->
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8360601351933611"
+crossorigin="anonymous"></script>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{min-height:100vh;background:linear-gradient(to bottom right,#1a1a2e,#4a1a4a,#1a1a2e);display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;padding:20px;}
+.container{max-width:600px;width:100%;}
+.title{text-align:center;font-size:3rem;font-weight:bold;background:linear-gradient(to right,#4ade80,#a855f7,#ec4899);-webkit-background-clip:text;background-clip:text;color:transparent;margin-bottom:20px;}
+.stats{display:flex;justify-content:center;gap:30px;color:white;margin-bottom:20px;flex-wrap:wrap;}
+.stat{display:flex;align-items:center;gap:8px;}
+.stat-value{font-size:1.5rem;font-weight:bold;}
+.combo{color:#fb923c;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.7;}}
+.game-container{position:relative;background:black;border-radius:8px;padding:8px;box-shadow:0 25px 50px -12px rgba(0,0,0,0.5);}
+canvas{width:100%;border:2px solid #a855f7;border-radius:4px;display:block;}
+.ad-banner{width:100%;height:80px;background:#374151;color:white;display:flex;align-items:center;justify-content:center;border-radius:4px;margin-bottom:8px;font-weight:bold;}
+.overlay{position:absolute;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;border-radius:8px;flex-direction:column;}
+.game-over-title{font-size:3rem;font-weight:bold;color:#ef4444;margin-bottom:20px;}
+.game-over-score{font-size:2rem;color:white;margin-bottom:30px;}
+.controls{margin-top:20px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+button{background:linear-gradient(to right,#22c55e,#9333ea);color:white;padding:12px 24px;border:none;border-radius:9999px;font-weight:bold;cursor:pointer;transition:transform 0.2s;font-size:16px;}
+button:hover{transform:scale(1.1);}
+.mode-btn{background:#3b82f6;border-radius:8px;padding:8px 16px;font-size:14px;}
+.mode-btn:hover{background:#2563eb;}
+.mode-btn.active{background:#22c55e;}
+.pause-btn{background:#3b82f6;border-radius:8px;}
+.pause-btn:hover{background:#2563eb;}
+.ad-start-btn{background:#3b82f6;margin-right:8px;}
+.ad-buy-btn{background:#22c55e;}
+.hidden{display:none;}
+</style>
+</head>
+<body>
+
+<div class="container">
+<h1 class="title">NEON SNAKE RUSH</h1>
+
+<div class="stats">
+  <div class="stat">
+    <span>🏆</span>
+    <span class="stat-value" id="score">0</span>
+  </div>
+  <div class="stat combo hidden" id="combo-display">
+    <span>⚡</span>
+    <span class="stat-value" id="combo">0x COMBO</span>
+  </div>
+  <div class="stat">
+    <div style="font-size:0.875rem;">
+      <div>Speed: <span id="speed">100</span>%</div>
+      <div>Mode: <span id="mode">Normal</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="game-container">
+<div id="ad-pause" class="ad-banner hidden">AD BANNER</div>
+<canvas id="gameCanvas"></canvas>
+
+<div id="start-ad" class="overlay hidden">
+<ins class="adsbygoogle" style="display:block;width:100%;height:80px;"
+     data-ad-client="ca-pub-8360601351933611" data-ad-slot="4587671097"
+     data-ad-format="auto" data-full-width-responsive="true"></ins>
+<button class="ad-start-btn" onclick="startGame()">Start Game</button>
+</div>
+
+<div id="game-over" class="overlay hidden">
+<ins class="adsbygoogle" style="display:block;width:100%;height:80px;"
+     data-ad-client="ca-pub-8360601351933611" data-ad-slot="4587671097"
+     data-ad-format="auto" data-full-width-responsive="true"></ins>
+<h2 class="game-over-title">GAME OVER</h2>
+<p class="game-over-score">Score: <span id="final-score">0</span></p>
+<button onclick="resetGame()">🔄 Play Again</button>
+</div>
+</div>
+
+<div class="controls">
+<button class="pause-btn" onclick="togglePause()"><span id="pause-icon">⏸</span> <span id="pause-text">Pause</span></button>
+<button class="mode-btn active" onclick="setMode('NORMAL')">Normal</button>
+<button class="mode-btn" onclick="setMode('TURBO')">Turbo</button>
+<button class="mode-btn" onclick="setMode('LONG')">Long Snake</button>
+<button class="mode-btn" onclick="setMode('FAST')">Short & Fast</button>
+<a href="https://www.paypal.com/paypalme/kernkraft9990"
+   target="_blank"
+   style="
+     display:inline-block;
+     background:linear-gradient(to right,#2563eb,#1e40af);
+     color:white;
+     padding:12px 24px;
+     border-radius:9999px;
+     font-weight:bold;
+     text-decoration:none;
+   ">
+💙 Oyunu Destekle (PayPal)
+</a>
+
+</div>
+</div>
+
+<script>
+/* ------------------- JS OYUN KODU ------------------- */
+const GRID_SIZE = 20;
+const CELL_SIZE = 20;
+const INITIAL_SPEED = 150;
+const SPEED_INCREMENT = 5;
+const COMBO_TIME = 2000;
+
+const POWER_TYPES = {
+  WALL_PASS: { name:'Wall Pass', color:'#00ffff', duration:3000 },
+  SLOWDOWN: { name:'Slowdown', color:'#ffff00', duration:5000 },
+  SHIELD: { name:'Shield', color:'#ff00ff', duration:4000 }
+};
+
+const SNAKE_MODES = {
+  NORMAL:{name:'Normal', speedMult:1, scoreMult:1, color:'#00ff00'},
+  TURBO:{name:'Turbo', speedMult:1.5, scoreMult:2, color:'#ff0000'},
+  LONG:{name:'Long Snake', speedMult:0.8, scoreMult:1.5, color:'#0000ff'},
+  FAST:{name:'Short & Fast', speedMult:2, scoreMult:1.8, color:'#ff00ff'}
+};
+
+let canvas, ctx;
+let snake=[{x:10,y:10}];
+let direction={x:1,y:0};
+let nextDirection={x:1,y:0};
+let food={x:15,y:15,type:'normal'};
+let obstacles=[];
+let score=0;
+let gameOver=false;
+let paused=false;
+let speed=INITIAL_SPEED;
+let combo=0;
+let comboTimer=null;
+let activePower=null;
+let powerTimer=null;
+let snakeMode=SNAKE_MODES.NORMAL;
+let particles=[];
+let gameLoop=null;
+let adsDisabled=localStorage.getItem('noAds')==='true';
+
+window.onload=()=>{
+  canvas=document.getElementById('gameCanvas');
+  ctx=canvas.getContext('2d');
+  canvas.width=GRID_SIZE*CELL_SIZE;
+  canvas.height=GRID_SIZE*CELL_SIZE;
+  if(!adsDisabled) document.getElementById('start-ad').classList.remove('hidden'); else startGame();
+  document.addEventListener('keydown',handleKeyPress);
+  canvas.addEventListener('touchstart',handleTouch);
+  canvas.addEventListener('touchmove',handleTouch);
+};
+
+function startGame(){document.getElementById('start-ad').classList.add('hidden');generateFood();startGameLoop();}
+function buyRemoveAds(){localStorage.setItem('noAds','true');adsDisabled=true;document.getElementById('start-ad').classList.add('hidden');document.getElementById('game-over').classList.add('hidden');startGame();}
+function handleKeyPress(e){if(gameOver||paused)return;const key=e.key;if(key==='ArrowUp'&&direction.y===0)nextDirection={x:0,y:-1};else if(key==='ArrowDown'&&direction.y===0)nextDirection={x:0,y:1};else if(key==='ArrowLeft'&&direction.x===0)nextDirection={x:-1,y:0};else if(key==='ArrowRight'&&direction.x===0)nextDirection={x:1,y:0};}
+function handleTouch(e){if(gameOver||paused)return;e.preventDefault();const rect=canvas.getBoundingClientRect();const touch=e.touches[0];const x=touch.clientX-rect.left;const y=touch.clientY-rect.top;const centerX=rect.width/2,centerY=rect.height/2,dx=x-centerX,dy=y-centerY;if(Math.abs(dx)>Math.abs(dy)){if(dx>0&&direction.x===0)nextDirection={x:1,y:0};else if(dx<0&&direction.x===0)nextDirection={x:-1,y:0};}else{if(dy>0&&direction.y===0)nextDirection={x:0,y:1};else if(dy<0&&direction.y===0)nextDirection={x:0,y:-1};}}
+function generateFood(){const types=['normal','power','bonus'],weights=[0.7,0.2,0.1],rand=Math.random();let type='normal',cumulative=0;for(let i=0;i<types.length;i++){cumulative+=weights[i];if(rand<cumulative){type=types[i];break;}}do{food={x:Math.floor(Math.random()*GRID_SIZE),y:Math.floor(Math.random()*GRID_SIZE),type}}while(snake.some(s=>s.x===food.x&&s.y===food.y)||obstacles.some(o=>o.x===food.x&&o.y===food.y));}
+function addParticles(x,y,color){for(let i=0;i<8;i++){particles.push({x:x*CELL_SIZE+CELL_SIZE/2,y:y*CELL_SIZE+CELL_SIZE/2,vx:(Math.random()-0.5)*4,vy:(Math.random()-0.5)*4,color,life:30});}}
+function increaseCombo(){if(comboTimer)clearTimeout(comboTimer);combo++;updateUI();comboTimer=setTimeout(()=>{combo=0;updateUI();},COMBO_TIME);}
+function activatePower(powerType){if(powerTimer)clearTimeout(powerTimer);const power=POWER_TYPES[powerType];activePower={type:powerType,...power};powerTimer=setTimeout(()=>{activePower=null;},power.duration);}
+function moveSnake(){if(gameOver||paused)return;direction={...nextDirection};const head=snake[0];const newHead={x:head.x+direction.x,y:head.y+direction.y};if(!activePower||activePower.type!=='WALL_PASS'){if(newHead.x<0||newHead.x>=GRID_SIZE||newHead.y<0||newHead.y>=GRID_SIZE){endGame();return;}}else{newHead.x=(newHead.x+GRID_SIZE)%GRID_SIZE;newHead.y=(newHead.y+GRID_SIZE)%GRID_SIZE;}if((!activePower||activePower.type!=='SHIELD')&&snake.some(s=>s.x===newHead.x&&s.y===newHead.y)){endGame();return;}if(obstacles.some(o=>o.x===newHead.x&&o.y===newHead.y)){if(!activePower||activePower.type!=='SHIELD'){endGame();return;}}snake.unshift(newHead);if(newHead.x===food.x&&newHead.y===food.y){const basePoints=10,comboMultiplier=1+combo*0.5,modeMultiplier=snakeMode.scoreMult,points=Math.floor(basePoints*comboMultiplier*modeMultiplier);score+=points;speed=Math.max(50,speed-SPEED_INCREMENT);increaseCombo();addParticles(food.x,food.y,food.type==='power'?'#ff00ff':'#00ff00');if(food.type==='power'){const powers=Object.keys(POWER_TYPES);activatePower(powers[Math.floor(Math.random()*powers.length)]);}if(food.type==='bonus'){score+=50;}updateUI();generateFood();restartGameLoop();}else{snake.pop();}particles=particles.map(p=>({...p,x:p.x+p.vx,y:p.y+p.vy,life:p.life-1})).filter(p=>p.life>0);render();}
+function render(){ctx.fillStyle='#000';ctx.fillRect(0,0,canvas.width,canvas.height);const foodColors={normal:'#00ff00',power:'#ff00ff',bonus:'#ffff00'};ctx.fillStyle=foodColors[food.type]||'#00ff00';ctx.shadowBlur=15;ctx.shadowColor=foodColors[food.type]||'#00ff00';ctx.fillRect(food.x*CELL_SIZE,food.y*CELL_SIZE,CELL_SIZE,CELL_SIZE);ctx.shadowBlur=0;snake.forEach((segment,i)=>{ctx.fillStyle=i===0?snakeMode.color:(activePower?activePower.color:snakeMode.color);ctx.shadowBlur=10;ctx.shadowColor=snakeMode.color;ctx.fillRect(segment.x*CELL_SIZE,segment.y*CELL_SIZE,CELL_SIZE-2,CELL_SIZE-2);ctx.shadowBlur=0;});ctx.fillStyle='#ff0000';obstacles.forEach(obs=>{ctx.fillRect(obs.x*CELL_SIZE,obs.y*CELL_SIZE,CELL_SIZE,CELL_SIZE);});particles.forEach(p=>{ctx.fillStyle=p.color;ctx.globalAlpha=p.life/30;ctx.fillRect(p.x,p.y,3,3);});ctx.globalAlpha=1;}
+function updateUI(){document.getElementById('score').textContent=score;document.getElementById('speed').textContent=Math.floor(200-speed);document.getElementById('mode').textContent=snakeMode.name;const comboDisplay=document.getElementById('combo-display');if(combo>1){comboDisplay.classList.remove('hidden');document.getElementById('combo').textContent=combo+'x COMBO';}else{comboDisplay.classList.add('hidden');}}
+function startGameLoop(){if(gameLoop)clearInterval(gameLoop);gameLoop=setInterval(moveSnake,speed/snakeMode.speedMult);}
+function restartGameLoop(){startGameLoop();}
+function endGame(){gameOver=true;if(gameLoop)clearInterval(gameLoop);document.getElementById('final-score').textContent=score;document.getElementById('game-over').classList.remove('hidden');if(!adsDisabled){document.querySelector('#game-over ins').style.display='flex';(adsbygoogle=window.adsbygoogle||[]).push({});}}
+function resetGame(){snake=[{x:10,y:10}];direction={x:1,y:0};nextDirection={x:1,y:0};score=0;gameOver=false;paused=false;speed=INITIAL_SPEED;combo=0;obstacles=[];activePower=null;particles=[];snakeMode=SNAKE_MODES.NORMAL;document.getElementById('game-over').classList.add('hidden');updateUI();if(!adsDisabled){document.getElementById('start-ad').classList.remove('hidden');}else{generateFood();startGameLoop();}}
+function togglePause(){if(gameOver)return;paused=!paused;const pauseIcon=document.getElementById('pause-icon'),pauseText=document.getElementById('pause-text'),adPause=document.getElementById('ad-pause');if(paused){pauseIcon.textContent='▶';pauseText.textContent='Resume';if(!adsDisabled)adPause.classList.remove('hidden');if(gameLoop)clearInterval(gameLoop);}else{pauseIcon.textContent='⏸';pauseText.textContent='Pause';adPause.classList.add('hidden');startGameLoop();}}
+function setMode(mode){snakeMode=SNAKE_MODES[mode];updateUI();document.querySelectorAll('.mode-btn').forEach(btn=>btn.classList.remove('active'));event.target.classList.add('active');restartGameLoop();}
+</script>
+
+</body>
+</html>
